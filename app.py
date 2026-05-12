@@ -1,8 +1,9 @@
 import os
+import uuid
 import subprocess
 from flask import Flask, request, jsonify, render_template, send_file
 import whisper
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 from gtts import gTTS
 
 app = Flask(__name__)
@@ -10,9 +11,8 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# AI models
-model = whisper.load_model("base")
-translator = Translator()
+# ⚡ Use light model for Render
+model = whisper.load_model("tiny")
 
 
 @app.route("/")
@@ -25,14 +25,16 @@ def process_video():
     try:
         video = request.files["video"]
 
-        video_path = os.path.join(UPLOAD_FOLDER, "input.mp4")
-        audio_path = os.path.join(UPLOAD_FOLDER, "audio.wav")
-        voice_path = os.path.join(UPLOAD_FOLDER, "khmer.mp3")
+        file_id = str(uuid.uuid4())
 
-        # save video
+        video_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.mp4")
+        audio_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.wav")
+        voice_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.mp3")
+
+        # STEP 1: save video
         video.save(video_path)
 
-        # STEP 1: extract audio
+        # STEP 2: extract audio (ffmpeg)
         subprocess.run([
             "ffmpeg", "-y",
             "-i", video_path,
@@ -41,18 +43,18 @@ def process_video():
             audio_path
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # STEP 2: speech to text
+        # STEP 3: speech to text
         result = model.transcribe(audio_path)
-        text = result["text"]
+        text = result["text"].strip()
 
-        # STEP 3: translate to Khmer
-        khmer_text = translator.translate(text, dest="km").text
+        # STEP 4: translate to Khmer (stable version)
+        khmer_text = GoogleTranslator(source='auto', target='km').translate(text)
 
-        # STEP 4: text → Khmer AI voice
+        # STEP 5: text → Khmer voice
         tts = gTTS(text=khmer_text, lang="km")
         tts.save(voice_path)
 
-        # STEP 5: cleanup input files
+        # STEP 6: cleanup (optional safe)
         if os.path.exists(video_path):
             os.remove(video_path)
         if os.path.exists(audio_path):
@@ -61,7 +63,8 @@ def process_video():
         return jsonify({
             "status": "success",
             "text": text,
-            "khmer": khmer_text
+            "khmer": khmer_text,
+            "audio_url": "/audio/" + file_id
         })
 
     except Exception as e:
@@ -71,11 +74,14 @@ def process_video():
         })
 
 
-# audio endpoint
-@app.route("/audio")
-def audio():
-    return send_file("uploads/khmer.mp3", mimetype="audio/mpeg")
+# 🎧 dynamic audio download
+@app.route("/audio/<file_id>")
+def audio(file_id):
+    path = os.path.join(UPLOAD_FOLDER, f"{file_id}.mp3")
+    return send_file(path, mimetype="audio/mpeg")
 
 
+# 🚀 IMPORTANT for Render
 if __name__ == "__main__":
-    app.run()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
