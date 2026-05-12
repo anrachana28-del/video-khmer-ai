@@ -11,7 +11,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ⚡ Use light model for Render
+# ⚡ load model (Docker safe)
 model = whisper.load_model("tiny")
 
 
@@ -24,17 +24,16 @@ def home():
 def process_video():
     try:
         video = request.files["video"]
-
         file_id = str(uuid.uuid4())
 
         video_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.mp4")
         audio_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.wav")
         voice_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.mp3")
 
-        # STEP 1: save video
+        # Save video
         video.save(video_path)
 
-        # STEP 2: extract audio (ffmpeg)
+        # Extract audio
         subprocess.run([
             "ffmpeg", "-y",
             "-i", video_path,
@@ -43,45 +42,42 @@ def process_video():
             audio_path
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        # STEP 3: speech to text
+        # Speech to text
         result = model.transcribe(audio_path)
-        text = result["text"].strip()
+        text = result["text"]
 
-        # STEP 4: translate to Khmer (stable version)
-        khmer_text = GoogleTranslator(source='auto', target='km').translate(text)
+        # Translate
+        khmer_text = GoogleTranslator(
+            source="auto",
+            target="km"
+        ).translate(text)
 
-        # STEP 5: text → Khmer voice
-        tts = gTTS(text=khmer_text, lang="km")
+        # Voice output
+        tts = gTTS(text=khmer_text, lang="en")
         tts.save(voice_path)
 
-        # STEP 6: cleanup (optional safe)
+        # cleanup
         if os.path.exists(video_path):
             os.remove(video_path)
         if os.path.exists(audio_path):
             os.remove(audio_path)
 
         return jsonify({
-            "status": "success",
             "text": text,
             "khmer": khmer_text,
-            "audio_url": "/audio/" + file_id
+            "audio_url": f"/audio/{file_id}"
         })
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        })
+        return jsonify({"error": str(e)})
 
 
-# 🎧 dynamic audio download
 @app.route("/audio/<file_id>")
 def audio(file_id):
     path = os.path.join(UPLOAD_FOLDER, f"{file_id}.mp3")
-    return send_file(path, mimetype="audio/mpeg")
+    return send_file(path)
 
 
-# 🚀 IMPORTANT for Render
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
