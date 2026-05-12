@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: video-khmer-ai
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10
+    aptPackages:
+      - ffmpeg
