@@ -1,51 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Video → Khmer AI Voice</title>
-    <style>
-        body {
-            font-family: Arial;
-            text-align: center;
-            background: #f4f4f4;
-            padding: 40px;
-        }
-
-        .box {
-            background: white;
-            padding: 20px;
-            width: 80%;
-            margin: auto;
-            border-radius: 10px;
-        }
-
-        button {
-            padding: 10px 20px;
-            margin-top: 10px;
-        }
-    </style>
+    <title>Video AI Khmer</title>
 </head>
 <body>
 
-<h1>🎬 Video → Khmer AI Voice</h1>
+<h2>🎥 Upload Video</h2>
 
-<div class="box">
-    <input type="file" id="video"><br><br>
-    <button onclick="upload()">Process Video</button>
+<input type="file" id="video">
+<button onclick="upload()">Process</button>
 
-    <h3>🗣️ English Text</h3>
-    <p id="text"></p>
-
-    <h3>🇰🇭 Khmer Text</h3>
-    <p id="khmer"></p>
-
-    <h3>🔊 AI Voice</h3>
-    <audio id="audio" controls></audio>
-</div>
+<p id="result"></p>
 
 <script>
 async function upload() {
     let file = document.getElementById("video").files[0];
-
     let formData = new FormData();
     formData.append("video", file);
 
@@ -56,11 +25,9 @@ async function upload() {
 
     let data = await res.json();
 
-    document.getElementById("text").innerText = data.text;
-    document.getElementById("khmer").innerText = data.khmer;
-
-    // load voice
-    document.getElementById("audio").src = "/audio?" + Date.now();
+    document.getElementById("result").innerHTML =
+        "TEXT: " + data.text + "<br><br>" +
+        "KHMER: " + data.khmer;
 }
 </script>
 
