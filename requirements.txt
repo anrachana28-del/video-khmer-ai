@@ -1,6 +1,6 @@
 flask==3.0.3
 gunicorn==21.2.0
 openai-whisper
-googletrans==4.0.0-rc1
+deep-translator
 gTTS
 imageio-ffmpeg
